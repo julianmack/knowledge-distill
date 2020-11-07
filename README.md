@@ -1,3 +1,6 @@
+# Knowledge Distillation
+
+## Task Instructions
 In the data directory, there is fin_news_all-data.csv containing 3-class 
 sentiment training data with news headlines and corresponding sentiment. In 
 represents investors sentiment, i.e. for example, if the news article might 

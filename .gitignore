@@ -1,1 +1,10 @@
+# data
 data/
+
+# models
+model/
+
+# python artefacts
+*.egg-info
+__pycache__/
+*.py[cod]
