@@ -11,13 +11,18 @@ SEED = 2 # DO NOT CHANGE
 class CSVTextDataset(torch.utils.data.Dataset):
     """Dataset class to load textual data.
 
-    This dataset is flexible enough to load both provided datasets
-    (fin_news_all-data.csv & headlines.csv).
+    This class **does not have responsibility for performing
+    tokenizing/embedding** so `.get` returns raw text instead of tensors. It
+    is more efficient (with `n_workers > 1`) to produce tensors in the
+    dataset but it also introduces complexities which I've decided to
+    sidestep here.
 
-    It is assumed that the provided csv is small enough to fit in RAM.
-
-    This class also has responsibility for splitting into test/train/valid
+    This class has responsibility for splitting into test/train/valid
     data subsets.
+
+    This dataset is flexible enough to load both provided datasets
+    (fin_news_all-data.csv & headlines.csv). It is assumed that the
+    provided csvs are small enough to fit in RAM.
 
     Args:
         csv_file: CSV input file.csv
