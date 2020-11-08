@@ -8,7 +8,6 @@ from torch.nn.utils.rnn import pad_sequence
 
 SEED = 2 # DO NOT CHANGE
 
-
 class CSVTextDataset(torch.utils.data.Dataset):
     """Dataset class to load textual data.
 
