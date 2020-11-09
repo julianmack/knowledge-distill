@@ -1,7 +1,7 @@
 import argparse
-from pathlib import Path
-import os
 import time
+import os
+from pathlib import Path
 
 import torch
 from torch.nn.utils.rnn import pad_sequence
@@ -9,10 +9,7 @@ from torch.nn.utils.rnn import pad_sequence
 from distill.student import ConvClassifier
 from distill.glove import GloveTokenizer
 from distill.data import get_train_valid_test_loaders
-from distill.utils import save_checkpoint, get_device
-from distill.labels import probs_to_labels, all_labels
-from distill.evaluate import print_eval_res, evaluate
-
+from distill.train.utils import train, train_epoch
 
 def train_args():
     parser = argparse.ArgumentParser()
@@ -87,6 +84,7 @@ def train_init(args):
         'log_dir': args.log_dir,
         'unpack_kwargs': {'glove_tokenizer': tokenizer},
         'eval_every': 10,
+        'unpack_batch_function': unpack_batch_send_to_device,
     }
 
 
@@ -113,96 +111,6 @@ def unpack_batch_send_to_device(batch, device, glove_tokenizer):
 
     x, y, x_len = x.to(device), y.to(device), x_len.to(device)
     return x, y, x_len
-
-def train(
-    model,
-    train_loader,
-    criterion,
-    optimizer,
-    epochs,
-    log_dir,
-    valid_loader=None,
-    eval_every=1,
-    unpack_kwargs={},
-    verbose=True,
-    **kwargs,
-):
-    log_dir = Path(log_dir)
-
-    iteration = 0
-    train_losses = []
-    train_eval_res = []
-    valid_eval_res = []
-    for epoch in range(1, epochs + 1):
-        print(f"Starting {epoch=}", end=", ")
-        if epoch == 0:
-            save_checkpoint(model, epoch, log_dir)
-        train_loss, iteration = train_epoch(
-            model, train_loader, criterion, optimizer, iteration, unpack_kwargs
-        )
-        train_losses.append(train_loss)
-
-        eval_this_epoch = (epoch % eval_every == 0) or epoch == epochs
-
-        if not eval_this_epoch:
-            continue
-        # save every epoch when evaluation is performed
-        save_checkpoint(model, epoch, log_dir)
-        print()
-        res = evaluate(
-            model=model,
-            loader=train_loader,
-            subset="train",
-            iteration=iteration,
-            unpack_kwargs=unpack_kwargs,
-            unpack_batch_fn=unpack_batch_send_to_device,
-            all_labels=all_labels,
-            probs_to_labels=probs_to_labels,
-        )
-        train_eval_res.append(res)
-        if verbose:
-            print_eval_res(train_eval_res[-1])
-        if not valid_loader:
-            continue
-        res = evaluate(
-            model=model,
-            loader=valid_loader,
-            subset="valid",
-            iteration=iteration,
-            unpack_kwargs=unpack_kwargs,
-            unpack_batch_fn=unpack_batch_send_to_device,
-            all_labels=all_labels,
-            probs_to_labels=probs_to_labels,
-        )
-        valid_eval_res.append(res)
-        if verbose:
-            print_eval_res(valid_eval_res[-1])
-
-    return train_losses, train_eval_res, valid_eval_res
-
-
-def train_epoch(model, loader, criterion, optimizer, iteration, unpack_kwargs):
-    """Train one epoch of model."""
-    device = get_device(model)
-    model.train()
-
-    count = 0
-    train_loss = 0.
-    for batch in loader:
-        iteration += 1
-        x, y, x_len = unpack_batch_send_to_device(
-            batch,
-            device,
-            **unpack_kwargs,
-        )
-        y_hat = model(x, x_len)
-        optimizer.zero_grad()
-        loss = criterion(y_hat, y)
-        loss.backward()
-        optimizer.step()
-        train_loss += loss.item()
-        count += y.size(0)
-    return train_loss / count, iteration
 
 if __name__ == '__main__':
     args = train_args()
