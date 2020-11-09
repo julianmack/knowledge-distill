@@ -73,7 +73,7 @@ class CSVTextDataset(torch.utils.data.Dataset):
             labels = data['label']
             # map labels to positive sentiment value in [0,1]
             labels = labels.map(
-                {'negative': 0, 'neutral': 0.5, 'positive': 1.}
+                {'negative': 0, 'neutral': 1, 'positive': 2}
             )
             labels = labels.tolist()
         self.labels = labels

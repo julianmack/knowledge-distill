@@ -213,7 +213,7 @@ num_params = lambda model: sum([p.numel() for p in model.parameters()])
 def test_resnext18():
     kwargs = {
         'zero_init_residual': True,
-        'num_classes': 1,  # i.e. output is single probability
+        'num_classes': 3,  # i.e. three class output
         'layers': [2, 2, 2, 2],
         'Cin': 50, # i.e. GloVe hidden dim size
     }
@@ -223,7 +223,6 @@ def test_resnext18():
 
     x = torch.randn(4, 50, 10)
     res = model(x)
-    print(res)
 
 if __name__ == '__main__':
     test_resnext18()

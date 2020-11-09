@@ -1,5 +1,7 @@
+import math
 import torch 
 from distill.resNext import resnext18
+
 
 class ConvClassifier(torch.nn.Module):
     """Convolutional text sequence classifier used as student.
@@ -20,28 +22,28 @@ class ConvClassifier(torch.nn.Module):
         super().__init__()
         resnext_kwargs = {
             'zero_init_residual': True,
-            'num_classes': 1,  # i.e. output is single probability
+            'num_classes': 3,  # i.e. three class output
             'layers': [2, 2, 2, 2],
             'Cin': glove_dim,
         }
         self.trunk = resnext18(**resnext_kwargs)
-        self.sigmoid = torch.nn.Sigmoid()
+        self.softmax = torch.nn.Softmax(dim=1)
 
     def forward(self, x, lengths=None):
         # x: B, T, H -> out: B
         x = x.transpose(1, 2)
-        x = self.trunk(x) # B, 1
-        x = x.squeeze(1) # B
-        return self.sigmoid(x)
+        x = self.trunk(x) # B, 3
+        return self.softmax(x)
 
 
 def test_conv_classifier():
     model = ConvClassifier()
-    x = torch.randn(3, 12, 50)
+    x = torch.randn(5, 12, 50)
 
     res = model(x)
-    assert res.shape == (3, 1)
+    assert res.shape == (5, 3)
     assert ((0 < res) * (res < 1)).all()
+    assert math.isclose(torch.sum(res), 5)
 
 if __name__ == '__main__':
     test_conv_classifier()

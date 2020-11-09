@@ -1,18 +1,11 @@
-all_labels = [':)', ':|', ':(']
+import torch
+all_labels = ['negative', 'neutral', 'positive']
 
 
 def prob_to_label(prob):
     """Converts prob to label."""
-    if prob < 0.3:
-        label = ':('
-    elif prob < 0.7:
-        label = ':|'
-    elif prob <= 1.0:
-        label = ':)'
-    else:
-        probability = prob.item()
-        raise ValueError(f"{probability=} is not a valid probability")
-    return label
+    idx = torch.argmax(prob)
+    return all_labels[idx]
 
 
 def probs_to_labels(probs):

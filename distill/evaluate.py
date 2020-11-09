@@ -14,9 +14,7 @@ from sklearn.metrics import f1_score
 
 from distill.utils import get_device
 
-
 class Metrics(Enum):
-    L1 = auto()
     ACCURACY = auto()
     F1 = auto()
     CONFUSION_MATRIX = auto()
@@ -42,8 +40,6 @@ def evaluate(
     require_labels = any([x in METRICS_REQUIRE_LABELS for x in metrics])
     # init accumulators
     samples_seen = 0
-    if Metrics.L1 in metrics:
-        l1_loss = 0
     if Metrics.ACCURACY in metrics:
         num_correct = 0
         num_pos_correct = 0
@@ -63,12 +59,9 @@ def evaluate(
 
         # convert to labels
         y_hat_labels = probs_to_labels(y_hat)
-        y_labels = probs_to_labels(y)
-
+        y_labels = idx_to_labels(y, all_labels)
         # update accumulators
         samples_seen += len(y)
-        if Metrics.L1 in metrics:
-            l1_loss += F.l1_loss(y, y_hat, reduction="sum")
         if Metrics.ACCURACY in metrics:
             num_correct += calc_correct(y_hat_labels, y_labels)
         if require_labels:
@@ -77,8 +70,6 @@ def evaluate(
 
     # compile results
     results = {}
-    if Metrics.L1 in metrics:
-        results[Metrics.L1] = l1_loss.item() / samples_seen
     if Metrics.ACCURACY in metrics:
         res = {'av': num_correct / samples_seen}
         results[Metrics.ACCURACY] = res
@@ -117,6 +108,8 @@ def evaluate(
     results['all_labels'] = all_labels
     return results
 
+def idx_to_labels(idxs, all_labels):
+    return [all_labels[idx] for idx in idxs]
 
 # METRIC calculation
 def calc_correct(y_hats, ys, label=None):
@@ -148,9 +141,6 @@ def print_eval_res(results):
         print("No results to print")
         return
     print("~" * 81)
-    if Metrics.L1 in metrics:
-        l1 = results[Metrics.L1]
-        print(f"Av. abs error:         \t{l1:.3f}")
     if Metrics.ACCURACY in metrics:
         _print_dict(results, "Accuracy:       \t", Metrics.ACCURACY, True)
     if Metrics.F1 in metrics:
@@ -158,7 +148,7 @@ def print_eval_res(results):
     if Metrics.CONFUSION_MATRIX in metrics:
         conf_mat = results[Metrics.CONFUSION_MATRIX]
         labels_str = ",".join(all_labels)
-        print(f"Confusion ({labels_str}):\n{conf_mat}")
+        print(f"Confusion [{labels_str}]\n{conf_mat}")
 
 
 def _print_dict(results, title, metric, percentage):

@@ -37,17 +37,17 @@ def train_args():
     parser.add_argument(
         '--glove_fp',
         type=str,
-        default='model/glove.6B/glove.6B.50d.txt',
+        default='model/glove.6B/glove.6B.200d.txt',
         help='GloVe fp'
     )
     parser.add_argument(
         '--glove_dim',
         type=int,
-        default=50,
+        default=200,
         help='GloVe hidden dimension size'
     )
     parser.add_argument('--batch_size', type=int, default=128)
-    parser.add_argument('--epochs', type=int, default=50)
+    parser.add_argument('--epochs', type=int, default=100)
 
     args = parser.parse_args()
     expt_name = args.expt_name or time.strftime("%Y_%m_%d_%H_%M_%S")
@@ -74,7 +74,7 @@ def train_init(args):
         model.parameters(), lr=0.001, weight_decay=0.001,
     )
 
-    criterion = torch.nn.BCELoss(reduction="sum")
+    criterion = torch.nn.CrossEntropyLoss(reduction="sum")
     return {
         'train_loader': train_loader,
         'valid_loader': valid_loader,
@@ -86,7 +86,7 @@ def train_init(args):
         'epochs': args.epochs,
         'log_dir': args.log_dir,
         'unpack_kwargs': {'glove_tokenizer': tokenizer},
-        'eval_every': 5,
+        'eval_every': 10,
     }
 
 
@@ -95,7 +95,7 @@ def unpack_batch_send_to_device(batch, device, glove_tokenizer):
     (texts, labels) = batch
 
     texts = [glove_tokenizer(text)[0] for text in texts]
-    labels = [torch.FloatTensor([label]) for label in labels]
+    labels = [torch.LongTensor([label]) for label in labels]
     lengths = torch.IntTensor([len(x) for x in texts])
 
     texts = pad_sequence(texts, batch_first=True)
@@ -187,7 +187,6 @@ def train_epoch(model, loader, criterion, optimizer, iteration, unpack_kwargs):
     model.train()
 
     count = 0
-    correct = 0
     train_loss = 0.
     for batch in loader:
         iteration += 1
@@ -198,21 +197,12 @@ def train_epoch(model, loader, criterion, optimizer, iteration, unpack_kwargs):
         )
         y_hat = model(x, x_len)
         optimizer.zero_grad()
-        loss = criterion(y_hat, y.float())
+        loss = criterion(y_hat, y)
         loss.backward()
         optimizer.step()
         train_loss += loss.item()
-        correct += calc_num_correct(y_hat, y)
         count += y.size(0)
-
     return train_loss / count, iteration
-
-
-@torch.no_grad()
-def calc_num_correct(y_hat, y):
-    y_hat_cls = (y_hat >= 0.5)
-    return (y_hat_cls == y).sum().item()
-
 
 if __name__ == '__main__':
     args = train_args()
