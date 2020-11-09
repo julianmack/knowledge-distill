@@ -3,6 +3,11 @@ import json
 from pathlib import Path
 
 import torch
+
+# to prevent a pandas FutureWarning do...
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
+
 from fast_bert.prediction import BertClassificationPredictor
 
 from distill.labels import label_to_idx
@@ -29,7 +34,6 @@ class TeacherNLPClassifier(torch.nn.Module):
         # results is a List[List[Tuple]] of `label, probability`.
         # convert this to a onehot tensor
         final = torch.zeros((len(results), len(self.label_to_idx)))
-        print(final)
         for i, result in enumerate(results):
             for (label, prob) in result:
                 idx = self.label_to_idx[label]

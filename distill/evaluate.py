@@ -33,7 +33,8 @@ def evaluate(
     probs_to_labels,
     iteration=0,
     unpack_kwargs = {},
-    metrics=list(Metrics)
+    max_iterations=None,
+    metrics=list(Metrics),
 ):
     device = get_device(model)
     model.eval()
@@ -49,7 +50,9 @@ def evaluate(
         y_labels_all = []
 
     # evaluate
+    count = 0
     for batch in loader:
+        count += 1
         x, y, x_len = unpack_batch_fn(
             batch,
             device,
@@ -59,7 +62,10 @@ def evaluate(
 
         # convert to labels
         y_hat_labels = probs_to_labels(y_hat)
-        y_labels = idx_to_labels(y, all_labels)
+        if len(y.shape) == 2:
+            y_labels = probs_to_labels(y)
+        elif len(y.shape) == 1:
+            y_labels = idx_to_labels(y, all_labels)
         # update accumulators
         samples_seen += len(y)
         if Metrics.ACCURACY in metrics:
@@ -67,7 +73,8 @@ def evaluate(
         if require_labels:
             y_hat_label_all.extend(y_hat_labels)
             y_labels_all.extend(y_labels)
-
+        if max_iterations and count > max_iterations:
+            break
     # compile results
     results = {}
     if Metrics.ACCURACY in metrics:

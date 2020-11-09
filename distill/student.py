@@ -44,6 +44,7 @@ def test_conv_classifier():
     assert res.shape == (5, 3)
     assert ((0 < res) * (res < 1)).all()
     assert math.isclose(torch.sum(res), 5)
+    print('tests run + passed')
 
 if __name__ == '__main__':
     test_conv_classifier()

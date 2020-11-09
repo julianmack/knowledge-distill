@@ -16,7 +16,10 @@ def train(
     valid_loader=None,
     eval_every=1,
     unpack_kwargs={},
+    eval_unpack_batch_fn = None,
+    eval_unpack_kwargs = None,
     verbose=True,
+    train_eval_iterations=None,
     **kwargs,
 ):
     log_dir = Path(log_dir)
@@ -56,6 +59,7 @@ def train(
             unpack_batch_fn=unpack_batch_function,
             all_labels=all_labels,
             probs_to_labels=probs_to_labels,
+            max_iterations=train_eval_iterations,
         )
         train_eval_res.append(res)
         if verbose:
@@ -67,8 +71,8 @@ def train(
             loader=valid_loader,
             subset="valid",
             iteration=iteration,
-            unpack_kwargs=unpack_kwargs,
-            unpack_batch_fn=unpack_batch_function,
+            unpack_kwargs=eval_unpack_kwargs or unpack_kwargs,
+            unpack_batch_fn=eval_unpack_batch_fn or unpack_batch_function,
             all_labels=all_labels,
             probs_to_labels=probs_to_labels,
         )
