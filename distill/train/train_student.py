@@ -1,4 +1,7 @@
 import argparse
+from pathlib import Path
+import os
+import time
 
 import torch
 from torch.nn.utils.rnn import pad_sequence
@@ -7,7 +10,7 @@ from distill.student import ConvClassifier
 from distill.glove import GloveTokenizer
 from distill.data import get_train_valid_test_loaders
 from distill.utils import save_checkpoint, get_device
-
+from distill.labels import probs_to_labels, all_labels
 
 def train_args():
     parser = argparse.ArgumentParser()
@@ -16,6 +19,18 @@ def train_args():
         type=str,
         default='data/fin_news_all-data.csv',
         help='Data CSV'
+    )
+    parser.add_argument(
+        '--log_dir_prefix',
+        type=str,
+        default='logs/',
+        help='Data CSV'
+    )
+    parser.add_argument(
+        '--expt_name',
+        type=str,
+        default=None,
+        help='name of experiment'
     )
     parser.add_argument(
         '--glove_fp',
@@ -30,10 +45,18 @@ def train_args():
         help='GloVe hidden dimension size'
     )
     parser.add_argument('--batch_size', type=int, default=128)
-    return parser.parse_args()
+    parser.add_argument('--epochs', type=int, default=50)
+
+    args = parser.parse_args()
+    expt_name = args.expt_name or time.strftime("%Y_%m_%d_%H_%M_%S")
+    if os.path.isdir(expt_name) and os.listdir(expt_name):
+        raise ValueError(f'directory={expt_name} already exists')
+
+    args.log_dir = Path(args.log_dir_prefix) / expt_name
+
+    return args
 
 def train_init(args):
-
     train_loader, valid_loader, test_loader = get_train_valid_test_loaders(
         csv_file=args.input_csv,
         headers=['label', 'text'],
@@ -43,6 +66,8 @@ def train_init(args):
     assert tokenizer.model.dim == args.glove_dim
     model = ConvClassifier(glove_dim=args.glove_dim)
 
+    if torch.cuda.is_available():
+        model = model.cuda()
     optimizer = torch.optim.AdamW(
         model.parameters(), lr=0.001, weight_decay=0.001,
     )
@@ -56,19 +81,28 @@ def train_init(args):
         'model': model,
         'optimizer': optimizer,
         'criterion': criterion,
+        'epochs': args.epochs,
+        'log_dir': args.log_dir,
+        'unpack_kwargs': {'glove_tokenizer': tokenizer}
     }
 
 
 def unpack_batch_send_to_device(batch, device, glove_tokenizer):
     """Unpacks batch + performs tokenization + label/text batch collation."""
-    batch = (texts, labels)
+    (texts, labels) = batch
 
-    texts = [glove_tokenizer(text) for text in texts]
-    labels = [torch.FloatTensor(label) for label in labels]
+    texts = [glove_tokenizer(text)[0] for text in texts]
+    labels = [torch.FloatTensor([label]) for label in labels]
     lengths = torch.IntTensor([len(x) for x in texts])
 
     texts = pad_sequence(texts, batch_first=True)
-    labels = pad_sequence(labels, batch_first=True)
+    labels = torch.cat(labels, dim=0)
+
+    B, T, H = texts.shape
+    B2, = labels.shape
+
+    assert B == B2 == len(texts)
+    assert H == glove_tokenizer.model.dim
 
     x = texts
     y = labels
@@ -83,9 +117,12 @@ def train(
     criterion,
     optimizer,
     epochs,
+    log_dir,
     valid_loader=None,
     train_loader_eval=None,
     eval_every=1,
+    unpack_kwargs={},
+    **kwargs,
 ):
     log_dir = Path(log_dir)
 
@@ -98,7 +135,7 @@ def train(
         if epoch == 0:
             save_checkpoint(model, epoch, log_dir)
         train_loss, iteration = train_epoch(
-            model, train_loader, criterion, optimizer, iteration,
+            model, train_loader, criterion, optimizer, iteration, unpack_kwargs
         )
         train_losses.append(train_loss)
 
@@ -114,6 +151,10 @@ def train(
             loader=train_loader_eval or train_loader,
             subset="train",
             iteration=iteration,
+            unpack_kwargs=unpack_kwargs,
+            unpack_batch_fn=unpack_batch_send_to_device,
+            all_labels=all_labels,
+            probs_to_labels=probs_to_labels,
         )
         train_eval_res.append(res)
         if verbose:
@@ -133,9 +174,9 @@ def train(
     return train_losses, train_eval_res, valid_eval_res
 
 
-def train_epoch(model, loader, criterion, optimizer, iteration):
+def train_epoch(model, loader, criterion, optimizer, iteration, unpack_kwargs):
     """Train one epoch of model."""
-    device = utils.get_device(model)
+    device = get_device(model)
     model.train()
 
     count = 0
@@ -143,7 +184,11 @@ def train_epoch(model, loader, criterion, optimizer, iteration):
     train_loss = 0.
     for batch in loader:
         iteration += 1
-        x, y, x_len = unpack_batch_send_to_device(batch, device)
+        x, y, x_len = unpack_batch_send_to_device(
+            batch,
+            device,
+            **unpack_kwargs,
+        )
         y_hat = model(x, x_len)
         optimizer.zero_grad()
         loss = criterion(y_hat, y.float())
@@ -152,7 +197,6 @@ def train_epoch(model, loader, criterion, optimizer, iteration):
         train_loss += loss.item()
         correct += calc_num_correct(y_hat, y)
         count += y.size(0)
-        exit_
     return train_loss / count, iteration
 
 
@@ -160,24 +204,6 @@ def train_epoch(model, loader, criterion, optimizer, iteration):
 def calc_num_correct(y_hat, y):
     y_hat_cls = (y_hat >= 0.5)
     return (y_hat_cls == y).sum().item()
-
-@torch.no_grad()
-def eval_model(model, loader, criterion):
-    device = list(model.state_dict().values())[0].device
-    model.eval()
-    count = 0
-    correct = 0
-    val_loss = 0.
-    for x, x_len, y, _ in loader:
-        B,_ = y.shape
-        x, y = x.to(device), y.to(device)
-        y_hat = model(x, x_len)
-        loss = criterion(y_hat, y.float())
-        val_loss += loss.item()
-        correct += calc_num_correct(y_hat, y)
-        count += y.size(0)
-    model.train()
-    return val_loss, correct / count
 
 
 if __name__ == '__main__':

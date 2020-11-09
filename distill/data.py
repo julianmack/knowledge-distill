@@ -1,3 +1,4 @@
+import csv
 import math
 from typing import List
 from typing import Optional
@@ -57,18 +58,10 @@ class CSVTextDataset(torch.utils.data.Dataset):
         self.headers = headers
         self.subset_start = subset_start
         self.subset_end = subset_end
-        try:
-            data = pd.read_csv(
-                csv_file, names=self.headers, quotechar='"'
-            )
-            trim_quote = False
-        except UnicodeEncodeError:
-            # for reasons I haven't investigated much, pandas doesn't
-            # excape the commas within quotes "" for the fin_news_all-data
-            # file. As there are just two columns can hackily exscape this
-            # by using ',"' as the separator (and trimming the final ").
-            pd.read_csv(csv_file, names=self.headers, quotechar='"', sep=',"')
-            trim_quote = True
+
+        data = pd.read_csv(
+            csv_file, names=self.headers, quotechar='"'
+        )
 
         # shuffle data before splitting. Use fixed random seed so that
         # this is deterministic.
@@ -92,8 +85,6 @@ class CSVTextDataset(torch.utils.data.Dataset):
             if self.labels:
                 self.labels = self.labels[start_idx: end_idx]
 
-        if trim_quote:
-            self.text = [x.strip('"') for x in self.text]
         if self.labels:
             assert len(self.labels) == len(self.text)
 
@@ -107,7 +98,7 @@ class CSVTextDataset(torch.utils.data.Dataset):
         return len(self.text)
 
     def collate_batch(self, batch: List):
-        texts, lengths, labels = [], []
+        texts, labels = [], []
 
         for data in batch:
             if isinstance(data, tuple):
@@ -116,13 +107,11 @@ class CSVTextDataset(torch.utils.data.Dataset):
                 labels.append(label)
             else:
                 texts.append(data)
-            lengths.append(len(texts[-1]))
 
-
+        result = texts
         if labels:
-            data = (data, labels)
-        lengths = torch.tensor(lengths)
-        return data, lengths
+            result = (result, labels)
+        return result
 
 def get_train_valid_test_loaders(csv_file, headers, batch_size):
     """Returns train/valid/test in 60:20:20 ratio."""
@@ -139,20 +128,20 @@ def get_train_valid_test_loaders(csv_file, headers, batch_size):
     )
     val_loader = DataLoader(
         valid,
-        batch_size=args.batch_size,
+        batch_size=batch_size,
         shuffle=False,
         num_workers=num_workers,
         collate_fn=valid.collate_batch,
     )
     test_loader = DataLoader(
         test,
-        batch_size=args.batch_size,
+        batch_size=batch_size,
         shuffle=False,
         num_workers=num_workers,
         collate_fn=test.collate_batch,
     )
 
-    return train, valid, test
+    return train_loader, val_loader, test_loader
 
 def test_dataset_cls(fp, headers):
     """Monolithinc test of dataset functionality."""

@@ -28,9 +28,10 @@ class ConvClassifier(torch.nn.Module):
         self.sigmoid = torch.nn.Sigmoid()
 
     def forward(self, x, lengths=None):
-        # x: B, T, H -> out: B, 1
+        # x: B, T, H -> out: B
         x = x.transpose(1, 2)
-        x = self.trunk(x)
+        x = self.trunk(x) # B, 1
+        x = x.squeeze(1) # B
         return self.sigmoid(x)
 
 
