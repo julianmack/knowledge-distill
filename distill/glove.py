@@ -26,6 +26,8 @@ class GloveEmbedding(torch.nn.Module):
         # null value is 'unk' vector
         self.null = self.word_to_id_['unk']
 
+        self.dim = len(embeddings_dict['the'])
+
     def word_to_id(self, word):
         return self.word_to_id_.get(word, self.null)
     def words_to_ids(self, words):
