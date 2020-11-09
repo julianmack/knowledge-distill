@@ -2,8 +2,7 @@
 
 The code is almost identical except for the following changes:
 1. Move from 2D convolution -> 1D convolution
-2. Replace RELU -> PReLu as typically more effective for regression.
-3. Reduce block base channel size from [64, 128, 256, 512] ->
+2. Reduce block base channel size from [64, 128, 256, 512] ->
 [16, 32, 64, 128]. This reduces parameters number from 9M -> 0.6M.
 
 Note that we use the `Bottleneck` block instead of the `BasicBlock` as this
@@ -55,13 +54,13 @@ class Bottleneck(nn.Module):
         # Both self.conv2 and self.downsample layers downsample the input when stride != 1
         self.conv1 = conv1(inplanes, width)
         self.bn1 = norm_layer(width)
-        self.relu1 = nn.PReLU()
+        self.relu1 = nn.ReLU()
         self.conv2 = conv3(width, width, stride, groups, dilation)
         self.bn2 = norm_layer(width)
-        self.relu2 = nn.PReLU()
+        self.relu2 = nn.ReLU()
         self.conv3 = conv1(width, planes * self.expansion)
         self.bn3 = norm_layer(planes * self.expansion)
-        self.relu3 = nn.PReLU()
+        self.relu3 = nn.ReLU()
         self.downsample = downsample
         self.stride = stride
 
@@ -114,7 +113,7 @@ class ResNet(nn.Module):
         self.conv1 = nn.Conv1d(Cin, self.inplanes, kernel_size=7, stride=2, padding=3,
                                bias=False)
         self.bn1 = norm_layer(self.inplanes)
-        self.relu = nn.PReLU()
+        self.relu = nn.ReLU()
         self.maxpool = nn.MaxPool1d(kernel_size=3, stride=2, padding=1)
         self.layer1 = self._make_layer(block, 16, layers[0])
         self.layer2 = self._make_layer(block, 32, layers[1], stride=2,
