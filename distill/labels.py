@@ -1,6 +1,6 @@
 import torch
 all_labels = ['negative', 'neutral', 'positive']
-
+label_to_idx = {label: i for i, label in enumerate(all_labels)}
 
 def prob_to_label(prob):
     """Converts prob to label."""
