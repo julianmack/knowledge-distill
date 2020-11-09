@@ -11,6 +11,8 @@ from distill.glove import GloveTokenizer
 from distill.data import get_train_valid_test_loaders
 from distill.utils import save_checkpoint, get_device
 from distill.labels import probs_to_labels, all_labels
+from distill.evaluate import print_eval_res, evaluate
+
 
 def train_args():
     parser = argparse.ArgumentParser()
@@ -83,7 +85,8 @@ def train_init(args):
         'criterion': criterion,
         'epochs': args.epochs,
         'log_dir': args.log_dir,
-        'unpack_kwargs': {'glove_tokenizer': tokenizer}
+        'unpack_kwargs': {'glove_tokenizer': tokenizer},
+        'eval_every': 5,
     }
 
 
@@ -119,9 +122,9 @@ def train(
     epochs,
     log_dir,
     valid_loader=None,
-    train_loader_eval=None,
     eval_every=1,
     unpack_kwargs={},
+    verbose=True,
     **kwargs,
 ):
     log_dir = Path(log_dir)
@@ -148,7 +151,7 @@ def train(
         print()
         res = evaluate(
             model=model,
-            loader=train_loader_eval or train_loader,
+            loader=train_loader,
             subset="train",
             iteration=iteration,
             unpack_kwargs=unpack_kwargs,
@@ -166,6 +169,10 @@ def train(
             loader=valid_loader,
             subset="valid",
             iteration=iteration,
+            unpack_kwargs=unpack_kwargs,
+            unpack_batch_fn=unpack_batch_send_to_device,
+            all_labels=all_labels,
+            probs_to_labels=probs_to_labels,
         )
         valid_eval_res.append(res)
         if verbose:
@@ -197,6 +204,7 @@ def train_epoch(model, loader, criterion, optimizer, iteration, unpack_kwargs):
         train_loss += loss.item()
         correct += calc_num_correct(y_hat, y)
         count += y.size(0)
+
     return train_loss / count, iteration
 
 
