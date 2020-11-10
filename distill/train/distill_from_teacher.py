@@ -123,7 +123,7 @@ def train_init(args):
         'eval_unpack_kwargs': {
             'glove_tokenizer': tokenizer,
         },
-        'train_eval_iterations': 200,
+        'train_eval_iterations': 40,
     }
 
 
