@@ -1,4 +1,5 @@
-"""This file is (mostly) copied from a personal project from a private repo.
+"""This file is an edited version of a file from a personal project
+in a private repo.
 """
 from collections import Counter
 from collections import OrderedDict
@@ -35,6 +36,7 @@ def evaluate(
     unpack_kwargs = {},
     max_iterations=None,
     metrics=list(Metrics),
+    **kwargs,
 ):
     device = get_device(model)
     model.eval()

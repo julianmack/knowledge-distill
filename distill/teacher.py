@@ -29,7 +29,7 @@ class TeacherNLPClassifier(torch.nn.Module):
         )
         self.label_to_idx = label_to_idx
 
-    def forward(self, texts: List[str]):
+    def forward(self, texts: List[str], lengths=None):
         results = self.model.predict_batch(texts)
         # results is a List[List[Tuple]] of `label, probability`.
         # convert this to a onehot tensor
