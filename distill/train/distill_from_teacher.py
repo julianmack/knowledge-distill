@@ -61,14 +61,13 @@ def train_args():
         help='Teacher model directory'
     )
     parser.add_argument('--batch_size', type=int, default=256)
-    parser.add_argument('--epochs', type=int, default=100)
+    parser.add_argument('--epochs', type=int, default=12)
 
     args = parser.parse_args()
     expt_name = args.expt_name or time.strftime("%Y_%m_%d_%H_%M_%S")
-    if os.path.isdir(expt_name) and os.listdir(expt_name):
-        raise ValueError(f'directory={expt_name} already exists')
-
     args.log_dir = Path(args.log_dir_prefix) / expt_name
+    if os.path.isdir(args.log_dir) and os.listdir(args.log_dir):
+        raise ValueError(f'directory={args.log_dir} already exists')
 
     return args
 
@@ -111,7 +110,7 @@ def train_init(args):
         'optimizer': optimizer,
         'criterion': criterion,
         'log_dir': args.log_dir,
-        'unpack_batch_function': unpack_batch_and_gen_teacher_samples,
+        'unpack_batch_fn': unpack_batch_and_gen_teacher_samples,
         'unpack_kwargs': {
             'glove_tokenizer': tokenizer,
             'teacher': teacher,

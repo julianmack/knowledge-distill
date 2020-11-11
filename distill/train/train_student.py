@@ -11,8 +11,8 @@ from distill.glove import GloveTokenizer
 from distill.data import get_train_valid_test_loaders
 from distill.train.utils import train, train_epoch
 
-def train_args():
-    parser = argparse.ArgumentParser()
+
+def add_train_args(parser):
     parser.add_argument(
         '--input_csv',
         type=str,
@@ -46,14 +46,25 @@ def train_args():
     parser.add_argument('--batch_size', type=int, default=128)
     parser.add_argument('--epochs', type=int, default=100)
 
+    parser.add_argument(
+        '-f',
+        '--file',
+        help='Dummy arg to enable argparser to be run from notebook'
+    )
+    return parser
+
+def train_args():
+    parser = argparse.ArgumentParser()
+    parser = add_train_args(parser)
+
     args = parser.parse_args()
     expt_name = args.expt_name or time.strftime("%Y_%m_%d_%H_%M_%S")
-    if os.path.isdir(expt_name) and os.listdir(expt_name):
-        raise ValueError(f'directory={expt_name} already exists')
-
     args.log_dir = Path(args.log_dir_prefix) / expt_name
+    if os.path.isdir(args.log_dir) and os.listdir(args.log_dir):
+        raise ValueError(f'directory={args.log_dir} already exists')
 
     return args
+
 
 def train_init(args):
     train_loader, valid_loader, test_loader = get_train_valid_test_loaders(
@@ -72,6 +83,7 @@ def train_init(args):
     )
 
     criterion = torch.nn.CrossEntropyLoss(reduction="sum")
+
     return {
         'train_loader': train_loader,
         'valid_loader': valid_loader,
@@ -81,10 +93,10 @@ def train_init(args):
         'optimizer': optimizer,
         'criterion': criterion,
         'epochs': args.epochs,
-        'log_dir': args.log_dir,
+        'log_dir': getattr(args, 'log_dir', None),
         'unpack_kwargs': {'glove_tokenizer': tokenizer},
         'eval_every': 10,
-        'unpack_batch_function': unpack_batch_send_to_device,
+        'unpack_batch_fn': unpack_batch_send_to_device,
     }
 
 

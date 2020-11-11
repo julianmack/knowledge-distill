@@ -12,7 +12,7 @@ def train(
     optimizer,
     epochs,
     log_dir,
-    unpack_batch_function,
+    unpack_batch_fn,
     valid_loader=None,
     eval_every=1,
     unpack_kwargs={},
@@ -39,7 +39,7 @@ def train(
             optimizer=optimizer,
             iteration=iteration,
             unpack_kwargs=unpack_kwargs,
-            unpack_batch_function=unpack_batch_function
+            unpack_batch_fn=unpack_batch_fn
         )
         train_losses.append(train_loss)
 
@@ -56,7 +56,7 @@ def train(
             subset="train",
             iteration=iteration,
             unpack_kwargs=unpack_kwargs,
-            unpack_batch_fn=unpack_batch_function,
+            unpack_batch_fn=unpack_batch_fn,
             all_labels=all_labels,
             probs_to_labels=probs_to_labels,
             max_iterations=train_eval_iterations,
@@ -72,7 +72,7 @@ def train(
             subset="valid",
             iteration=iteration,
             unpack_kwargs=eval_unpack_kwargs or unpack_kwargs,
-            unpack_batch_fn=eval_unpack_batch_fn or unpack_batch_function,
+            unpack_batch_fn=eval_unpack_batch_fn or unpack_batch_fn,
             all_labels=all_labels,
             probs_to_labels=probs_to_labels,
         )
@@ -84,7 +84,7 @@ def train(
 
 
 
-def train_epoch(model, loader, criterion, optimizer, iteration, unpack_batch_function, unpack_kwargs):
+def train_epoch(model, loader, criterion, optimizer, iteration, unpack_batch_fn, unpack_kwargs):
     """Train one epoch of model."""
     device = get_device(model)
     model.train()
@@ -93,7 +93,7 @@ def train_epoch(model, loader, criterion, optimizer, iteration, unpack_batch_fun
     train_loss = 0.
     for batch in loader:
         iteration += 1
-        x, y, x_len = unpack_batch_function(
+        x, y, x_len = unpack_batch_fn(
             batch,
             device,
             **unpack_kwargs,
