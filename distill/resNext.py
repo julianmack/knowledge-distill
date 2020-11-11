@@ -1,9 +1,12 @@
 """Most of this file is copied from torchvision: https://github.com/pytorch/vision/blob/052edcecef3eb0ae9fe9e4b256fa2a488f9f395b/torchvision/models/resnet.py
 
-The code is almost identical except for the following changes:
+The following changes have been made vs the original:
 1. Move from 2D convolution -> 1D convolution
 2. Reduce block base channel size from [64, 128, 256, 512] ->
 [16, 32, 64, 128]. This reduces parameters number from 9M -> 0.6M.
+3. Use maxpool + conv in parallel and concatenate (instead of just maxpool)
+when downsampling the feature map. This also increases feature map size -
+previous defaults collapsed most sequences to length of 1.
 
 Note that we use the `Bottleneck` block instead of the `BasicBlock` as this
 creates ResNeXt model instead of ResNet.
@@ -106,6 +109,7 @@ class ResNet(nn.Module):
         self._norm_layer = norm_layer
 
         self.inplanes = 16
+        self.in_size = self.inplanes
         self.dilation = 1
 
         self.groups = groups
@@ -115,15 +119,24 @@ class ResNet(nn.Module):
         self.bn1 = norm_layer(self.inplanes)
         self.relu = nn.ReLU()
         self.maxpool = nn.MaxPool1d(kernel_size=3, stride=2, padding=1)
-        self.layer1 = self._make_layer(block, 16, layers[0])
-        self.layer2 = self._make_layer(block, 32, layers[1], stride=2,
+        self.conv2 = nn.Conv1d(
+            self.inplanes,
+            self.inplanes,
+            kernel_size=3,
+            stride=2,
+            padding=1,
+            bias=False,
+        )
+        self.layer1 = self._make_layer(block, self.in_size, layers[0])
+        self.layer2 = self._make_layer(block, self.in_size * 2, layers[1], stride=2,
                                        dilate=False)
-        self.layer3 = self._make_layer(block, 64, layers[2], stride=2,
+        self.layer3 = self._make_layer(block, self.in_size * 2, layers[2], stride=2,
                                        dilate=False)
-        self.layer4 = self._make_layer(block, 128, layers[3], stride=2,
+        self.layer4 = self._make_layer(block, self.in_size * 4, layers[3], stride=2,
                                        dilate=False)
+        self.maxpool2 = nn.AdaptiveMaxPool1d(1)
         self.avgpool = nn.AdaptiveAvgPool1d(1)
-        self.fc = nn.Linear(128 * block.expansion, num_classes)
+        self.fc = nn.Linear(self.in_size * 4 * block.expansion * 2, num_classes)
 
         for m in self.modules():
             if isinstance(m, nn.Conv1d):
@@ -171,14 +184,19 @@ class ResNet(nn.Module):
         x = self.conv1(x)
         x = self.bn1(x)
         x = self.relu(x)
-        x = self.maxpool(x)
 
+        h1 = self.maxpool(x)
+        h2 = self.conv2(x)
+
+        x = torch.cat([h1, h2], dim=-1)
         x = self.layer1(x)
         x = self.layer2(x)
         x = self.layer3(x)
         x = self.layer4(x)
 
-        x = self.avgpool(x)
+        h1 = self.avgpool(x)
+        h2 = self.maxpool2(x)
+        x = torch.cat([h1, h2], dim=-1)
         x = torch.flatten(x, 1)
         x = self.fc(x)
 
