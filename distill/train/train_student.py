@@ -7,6 +7,7 @@ import torch
 from torch.nn.utils.rnn import pad_sequence
 
 from distill.student import ConvClassifier
+from distill.student import LSTMClassifier
 from distill.glove import GloveTokenizer
 from distill.data import get_train_valid_test_loaders
 from distill.train.utils import train, train_epoch
@@ -24,6 +25,12 @@ def add_train_args(parser):
         type=str,
         default='logs/',
         help='Data CSV'
+    )
+    parser.add_argument(
+        '--model_type',
+        type=str,
+        default='conv',
+        help='One of {conv, lstm}'
     )
     parser.add_argument(
         '--expt_name',
@@ -67,6 +74,18 @@ def train_args():
 
 
 def train_init(args):
+    if args.model_type == 'conv':
+        model = ConvClassifier(glove_dim=args.glove_dim)
+    elif args.model_type == 'lstm':
+        model = LSTMClassifier(glove_dim=args.glove_dim)
+    else:
+        raise ValueError
+    if torch.cuda.is_available():
+        model = model.cuda()
+    optimizer = torch.optim.AdamW(
+        model.parameters(), lr=0.001, weight_decay=0.001,
+    )
+
     train_loader, valid_loader, test_loader = get_train_valid_test_loaders(
         csv_file=args.input_csv,
         headers=['label', 'text'],
@@ -74,13 +93,6 @@ def train_init(args):
     )
     tokenizer = GloveTokenizer(glove_fp=args.glove_fp)
     assert tokenizer.model.dim == args.glove_dim
-    model = ConvClassifier(glove_dim=args.glove_dim)
-
-    if torch.cuda.is_available():
-        model = model.cuda()
-    optimizer = torch.optim.AdamW(
-        model.parameters(), lr=0.001, weight_decay=0.001,
-    )
 
     criterion = torch.nn.CrossEntropyLoss(reduction="sum")
 
