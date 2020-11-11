@@ -69,6 +69,17 @@ class CSVTextDataset(torch.utils.data.Dataset):
 
         self.text = data['text'].tolist()
         labels = None
+
+        if 'negative' in self.headers and \
+            'neutral' in self.headers and \
+            'positive' in self.headers:
+            data['label'] = None
+            self.headers.append('label')
+
+            data.loc[data['negative'] == '1', 'label'] = 'negative'
+            data.loc[data['neutral'] == '1', 'label'] = 'neutral'
+            data.loc[data['positive'] == '1', 'label'] = 'positive'
+
         if 'label' in self.headers:
             labels = data['label']
             # map labels to positive sentiment value in [0,1]
@@ -87,6 +98,12 @@ class CSVTextDataset(torch.utils.data.Dataset):
 
         if self.labels:
             assert len(self.labels) == len(self.text)
+
+            # filter out NaN labels
+            for i, label in enumerate(self.labels):
+                if label is None or math.isnan(label):
+                    self.labels.pop(i)
+                    self.text.pop(i)
 
     def __getitem__(self, index):
         item = self.text[index]
@@ -168,3 +185,8 @@ if __name__ == '__main__':
     fp = 'data/headlines.csv'
     headers = ['text']
     test_dataset_cls(fp, headers=headers)
+
+
+    # fp = './data/val.csv'
+    # headers=['text', 'negative', 'neutral', 'positive']
+    # test_dataset_cls(fp, headers=headers)
