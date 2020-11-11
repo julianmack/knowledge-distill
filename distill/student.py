@@ -1,6 +1,6 @@
 import math
 import torch 
-from distill.resNext import resnext18
+from distill.resNext import resnext18, Bottleneck, num_params
 
 
 class ConvClassifier(torch.nn.Module):
@@ -55,6 +55,7 @@ class LSTMClassifier(torch.nn.Module):
 
         self.linear = torch.nn.Linear(2 * hidden_size, n_classes)
         self.softmax = torch.nn.Softmax(dim=1)
+        # print(num_params(self))
 
     def forward(self, x, x_len):
         res, _ = self.lstm(x)
@@ -84,7 +85,7 @@ def test_conv_classifier():
     res = model(x)
     assert res.shape == (5, 3)
     assert ((0 < res) * (res < 1)).all()
-    assert math.isclose(torch.sum(res), 5)
+    assert math.isclose(torch.sum(res), 5, rel_tol=1e-5), f'{torch.sum(res)} != 5'
     print('tests run + passed')
 
 def test_lstm_classifier():
@@ -94,7 +95,7 @@ def test_lstm_classifier():
     res = model(x, x_len)
     assert res.shape == (5, 3), f'{res.shape=}'
     assert ((0 < res) * (res < 1)).all()
-    assert math.isclose(torch.sum(res), 5)
+    assert math.isclose(torch.sum(res), 5, rel_tol=1e-5), f'{torch.sum(res)} != 5'
     print('tests run + passed')
 
 if __name__ == '__main__':

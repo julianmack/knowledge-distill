@@ -8,7 +8,7 @@ from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import DataLoader
 
 
-from distill.student import ConvClassifier
+from distill.student import ConvClassifier, LSTMClassifier
 from distill.teacher import TeacherNLPClassifier
 from distill.glove import GloveTokenizer
 from distill.data import get_train_valid_test_loaders
@@ -29,6 +29,12 @@ def train_args():
         type=str,
         default='data/fin_news_all-data.csv',
         help='Data CSV'
+    )
+    parser.add_argument(
+        '--model_type',
+        type=str,
+        default='conv',
+        help='One of {conv, lstm}'
     )
     parser.add_argument(
         '--log_dir_prefix',
@@ -87,7 +93,12 @@ def train_init(args):
     )
     tokenizer = GloveTokenizer(glove_fp=args.glove_fp)
     assert tokenizer.model.dim == args.glove_dim
-    model = ConvClassifier(glove_dim=args.glove_dim)
+    if args.model_type == 'conv':
+        model = ConvClassifier(glove_dim=args.glove_dim)
+    elif args.model_type == 'lstm':
+        model = LSTMClassifier(glove_dim=args.glove_dim)
+    else:
+        raise ValueError
 
     if torch.cuda.is_available():
         model = model.cuda()
@@ -122,7 +133,7 @@ def train_init(args):
         'eval_unpack_kwargs': {
             'glove_tokenizer': tokenizer,
         },
-        'train_eval_iterations': 40,
+        'train_eval_iterations': 20,
     }
 
 
